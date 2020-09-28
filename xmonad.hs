@@ -198,6 +198,7 @@ bluetileConfig =
     docks $ ewmh $
     def
         { modMask = mod4Mask,   -- logo key
+          clickJustFocuses = False,
           manageHook = bluetileManageHook,
           layoutHook = bluetileLayoutHook,
           logHook = currentWorkspaceOnTop >> ewmhDesktopsLogHook,
