@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS -fno-warn-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-deprecations #-}
 ----------------------------------------------------------------------------
 -- |
 -- Module      :  XMonad.Config.Bluetile
@@ -50,9 +51,9 @@ import XMonad.Hooks.Minimize
 import XMonad.Hooks.ServerMode
 import XMonad.Hooks.WorkspaceByPos
 
-import XMonad.Config.Gnome
-
+import XMonad.Util.Font
 import XMonad.Util.Replace
+import XMonad.Util.Themes
 
 import qualified XMonad.StackSet as W
 import qualified Data.Map as M
@@ -81,7 +82,6 @@ bluetileKeys :: XConfig Layout -> M.Map (KeyMask, KeySym) (X ())
 bluetileKeys conf@(XConfig {XMonad.modMask = modMask'}) = M.fromList $
     -- launching and killing programs
     [ ((modMask'              , xK_Return), spawn $ XMonad.terminal conf) -- %! Launch terminal
-    , ((modMask',               xK_p     ), gnomeRun)    --  %! Launch Gnome "Run application" dialog
     , ((modMask' .|. shiftMask, xK_c     ), kill) -- %! Close the focused window
 
     , ((modMask',               xK_F5 ), refresh) -- %! Resize viewed windows to the correct size
@@ -126,7 +126,7 @@ bluetileKeys conf@(XConfig {XMonad.modMask = modMask'}) = M.fromList $
     , ((mod1Mask .|. controlMask .|. shiftMask,   xK_Right), shiftToNext >> nextWS)
 
     -- more Metacity keys
-    , ((mod1Mask             , xK_F2), gnomeRun)
+    , ((mod1Mask             , xK_F2), spawn "xfce4-appfinder") -- %! Launch Xfce "Run application" dialog
     , ((mod1Mask             , xK_F4), kill)
 
     -- Switching to layouts
@@ -141,6 +141,7 @@ bluetileKeys conf@(XConfig {XMonad.modMask = modMask'}) = M.fromList $
     -- Minimizing
     , ((modMask',               xK_m     ), withFocused minimizeWindow)
     , ((modMask' .|. shiftMask, xK_m     ), withLastMinimized maximizeWindowAndFocus)
+    , ((modMask',               xK_x     ), withLastMinimized maximizeWindowAndFocus)
     ]
     ++
     -- mod-[1..9] ++ [0] %! Switch to workspace N
@@ -173,26 +174,60 @@ isFloating w = do
     ws <- gets windowset
     return $ M.member w (W.floating ws)
 
+solitaryTheme :: Theme
+solitaryTheme = 
+    def
+        { activeColor = "#FFBB66",
+          inactiveColor = "#555555",
+          activeBorderColor = "#FFBB66",
+          inactiveBorderColor = "#111111",
+          activeTextColor = "black",
+          inactiveTextColor = "#EEEEEE",
+          --fontName = "-misc-fixed-*-*-*-*-18-*-*-*-*-*-iso8859-2",
+          fontName = "-misc-fixed-*-*-*-*-15-*-*-*-*-*-iso8859-2",
+          decoHeight = 20,
+          -- urgentColor = "black",
+          -- urgentTextColor = "red",
+          windowTitleAddons = [ 
+                                (" (M)", AlignLeft),
+                                ("_"   , AlignRightOffset 48),
+                                ("[]"  , AlignRightOffset 25),
+                                ("X"   , AlignRightOffset 10)
+                              ]
+         }
+
 bluetileManageHook :: ManageHook
 bluetileManageHook = composeAll
-               [ workspaceByPos, positionStoreManageHook (Just defaultThemeWithButtons)
-                , className =? "MPlayer" --> doFloat
+               [ workspaceByPos, positionStoreManageHook (Just solitaryTheme)
+                , className =? "mpv" --> doFloat
+                , title =? "Origin" --> doFloat
+                , resource =? "origin.exe" --> doFloat
+                , className =? "origin.exe" --> doFloat
+                , className =? "upc.exe" --> doFloat
+                , className =? "gamescope" --> doFloat
+                , className =? "Steam" --> doShift "8"
+                , className =? "Hexchat" --> doShift "2"
+                , className =? "Audacious" --> doShift "3"
+                , className =? "Transmission-gtk" --> doShift "3"
+                , className =? "Vivaldi-stable" --> doShift "4"
+                , className =? "org.remmina.Remmina" --> doShift "5"
+                , className =? "jetbrains-idea" --> doShift "6"
                 , isFullscreen --> doFullFloat]
 
 bluetileLayoutHook = avoidStruts $ minimize $ boringWindows $ (
-                        named "Floating" floating |||
-                        named "Tiled1" tiled1 |||
                         named "Tiled2" tiled2 |||
+                        named "Tiled1" tiled1 |||
+                        named "Floating" floating |||
                         named "Fullscreen" fullscreen
                         )
         where
-            floating = floatingDeco $ maximize $ borderResize $ positionStoreFloat
-            tiled1 = tilingDeco $ maximize $ mouseResizableTileMirrored
             tiled2 = tilingDeco $ maximize $ mouseResizableTile
+            tiled1 = tilingDeco $ maximize $ mouseResizableTileMirrored
+            floating = floatingDeco $ maximize $ borderResize $ positionStoreFloat
             fullscreen = tilingDeco $ maximize $ smartBorders Full
 
-            tilingDeco l = windowSwitcherDecorationWithButtons shrinkText defaultThemeWithButtons (draggingVisualizer l)
-            floatingDeco l = buttonDeco shrinkText defaultThemeWithButtons l
+            tilingDeco l = windowSwitcherDecorationWithButtons shrinkText solitaryTheme (draggingVisualizer l)
+            floatingDeco l = buttonDeco shrinkText solitaryTheme l
 
 bluetileConfig =
     docks $ ewmh $
@@ -212,10 +247,28 @@ bluetileConfig =
           mouseBindings = bluetileMouseBindings,
           focusFollowsMouse = False,
           borderWidth = 0,
-          focusedBorderColor = "#000000",
-          normalBorderColor = "#FF8F00",
+          focusedBorderColor = "#101010",
+          normalBorderColor = "#FF7700",
           terminal = "xfce4-terminal"
         }
+
+--bluetileConfig =
+--    docks $ ewmhFullscreen . ewmh $
+--    def
+--        { modMask = mod4Mask,   -- logo key
+--          clickJustFocuses = False,
+--          manageHook = bluetileManageHook,
+--          layoutHook = bluetileLayoutHook,
+--         logHook = currentWorkspaceOnTop, 
+--          workspaces = bluetileWorkspaces,
+--          keys = bluetileKeys,
+--          mouseBindings = bluetileMouseBindings,
+--          focusFollowsMouse = False,
+--          borderWidth = 0,
+--          focusedBorderColor = "#101010",
+--          normalBorderColor = "#FF7700",
+--          terminal = "xfce4-terminal"
+--       }
 
 fullscreenSupport c = c
     { startupHook = startupHook c <+> setSupportedWithFullscreen
@@ -240,3 +293,4 @@ fullscreenSupport c = c
             io $ changeProperty32 dpy r a c propModeReplace (fmap fromIntegral supp)
 
 main = replace >> xmonad (fullscreenSupport bluetileConfig) 
+-- main = replace >> xmonad bluetileConfig
