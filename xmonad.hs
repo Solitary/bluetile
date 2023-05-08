@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS -fno-warn-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-deprecations #-}
 ----------------------------------------------------------------------------
 -- |
 -- Module      :  XMonad.Config.Bluetile
@@ -50,6 +49,8 @@ import XMonad.Hooks.PositionStoreHooks
 import XMonad.Hooks.Minimize
 import XMonad.Hooks.ServerMode
 import XMonad.Hooks.WorkspaceByPos
+import XMonad.Hooks.UrgencyHook
+import XMonad.Hooks.WorkspaceHistory
 
 import XMonad.Util.Font
 import XMonad.Util.Replace
@@ -186,8 +187,8 @@ solitaryTheme =
           --fontName = "-misc-fixed-*-*-*-*-18-*-*-*-*-*-iso8859-2",
           fontName = "-misc-fixed-*-*-*-*-15-*-*-*-*-*-iso8859-2",
           decoHeight = 20,
-          -- urgentColor = "black",
-          -- urgentTextColor = "red",
+          urgentColor = "red",
+          urgentTextColor = "black",
           windowTitleAddons = [ 
                                 (" (M)", AlignLeft),
                                 ("_"   , AlignRightOffset 48),
@@ -200,9 +201,6 @@ bluetileManageHook :: ManageHook
 bluetileManageHook = composeAll
                [ workspaceByPos, positionStoreManageHook (Just solitaryTheme)
                 , className =? "mpv" --> doFloat
-                , title =? "Origin" --> doFloat
-                , resource =? "origin.exe" --> doFloat
-                , className =? "origin.exe" --> doFloat
                 , className =? "upc.exe" --> doFloat
                 , className =? "gamescope" --> doFloat
                 , className =? "Steam" --> doShift "8"
@@ -230,18 +228,16 @@ bluetileLayoutHook = avoidStruts $ minimize $ boringWindows $ (
             floatingDeco l = buttonDeco shrinkText solitaryTheme l
 
 bluetileConfig =
-    docks $ ewmh $
+    docks $ setEwmhActivateHook doAskUrgent . ewmhFullscreen . ewmh $
     def
         { modMask = mod4Mask,   -- logo key
           clickJustFocuses = False,
           manageHook = bluetileManageHook,
           layoutHook = bluetileLayoutHook,
-          logHook = currentWorkspaceOnTop >> ewmhDesktopsLogHook,
-          handleEventHook = ewmhDesktopsEventHook
-                                `mappend` fullscreenEventHook
-                                `mappend` minimizeEventHook
-                                `mappend` serverModeEventHook' bluetileCommands
-                                `mappend` positionStoreEventHook,
+          logHook = currentWorkspaceOnTop >> workspaceHistoryHook, 
+          handleEventHook = minimizeEventHook 
+                               `mappend` serverModeEventHook' bluetileCommands
+                               `mappend` positionStoreEventHook,
           workspaces = bluetileWorkspaces,
           keys = bluetileKeys,
           mouseBindings = bluetileMouseBindings,
@@ -252,45 +248,4 @@ bluetileConfig =
           terminal = "xfce4-terminal"
         }
 
---bluetileConfig =
---    docks $ ewmhFullscreen . ewmh $
---    def
---        { modMask = mod4Mask,   -- logo key
---          clickJustFocuses = False,
---          manageHook = bluetileManageHook,
---          layoutHook = bluetileLayoutHook,
---         logHook = currentWorkspaceOnTop, 
---          workspaces = bluetileWorkspaces,
---          keys = bluetileKeys,
---          mouseBindings = bluetileMouseBindings,
---          focusFollowsMouse = False,
---          borderWidth = 0,
---          focusedBorderColor = "#101010",
---          normalBorderColor = "#FF7700",
---          terminal = "xfce4-terminal"
---       }
-
-fullscreenSupport c = c
-    { startupHook = startupHook c <+> setSupportedWithFullscreen
-    }
-    where
-        setSupportedWithFullscreen :: X ()
-        setSupportedWithFullscreen = withDisplay $ \dpy -> do
-            r <- asks theRoot
-            a <- getAtom "_NET_SUPPORTED"
-            c <- getAtom "ATOM"
-            supp <- mapM getAtom ["_NET_WM_STATE_HIDDEN"
-                                ,"_NET_WM_STATE_FULLSCREEN"
-                                ,"_NET_NUMBER_OF_DESKTOPS"
-                                ,"_NET_CLIENT_LIST"
-                                ,"_NET_CLIENT_LIST_STACKING"
-                                ,"_NET_CURRENT_DESKTOP"
-                                ,"_NET_DESKTOP_NAMES"
-                                ,"_NET_ACTIVE_WINDOW"
-                                ,"_NET_WM_DESKTOP"
-                                ,"_NET_WM_STRUT"
-                                ]
-            io $ changeProperty32 dpy r a c propModeReplace (fmap fromIntegral supp)
-
-main = replace >> xmonad (fullscreenSupport bluetileConfig) 
--- main = replace >> xmonad bluetileConfig
+main = replace >> xmonad (bluetileConfig)
